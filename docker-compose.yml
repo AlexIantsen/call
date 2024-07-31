@@ -6,18 +6,22 @@ services:
     container_name: backend
     volumes:
       - ./backend:/app
-    ports:
-      - "8000:80"
-    depends_on:
-      - turnserver
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`yourdomain.com`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=80"
+    networks:
+      - web
 
   frontend:
     build: ./frontend
     container_name: frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`yourdomain.com`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    networks:
+      - web
 
   turnserver:
     image: instrumentisto/turnserver
@@ -33,3 +37,31 @@ services:
       - TURN_SERVER_REALM=yourdomain.com
       - TURN_SERVER_USER=testuser
       - TURN_SERVER_PASSWORD=testpassword
+    networks:
+      - web
+
+  traefik:
+    image: traefik:v2.5
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"                           # Включение панели управления Traefik
+      - "--providers.docker=true"                       # Включение Docker провайдера
+      - "--entrypoints.web.address=:80"                 # HTTP точка входа
+      - "--entrypoints.websecure.address=:443"          # HTTPS точка входа
+      - "--certificatesresolvers.http.acme.httpchallenge=true"  # Включение ACME HTTP challenge для Let's Encrypt
+      - "--certificatesresolvers.http.acme.httpchallenge.entrypoint=web"  # HTTP точка входа для ACME challenge
+      - "--certificatesresolvers.http.acme.email=youremail@example.com"   # Email для Let's Encrypt
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"  # Хранилище сертификатов
+    ports:
+      - "80:80"                  # HTTP порт
+      - "443:443"                # HTTPS порт
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"  # Docker сокет для Traefik
+      - "./letsencrypt:/letsencrypt"                  # Объем для сертификатов Let's Encrypt
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
