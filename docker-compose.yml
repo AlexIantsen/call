@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    image: tiangolo/uvicorn-gunicorn-fastapi:python3.9
+    container_name: backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:80"
+    depends_on:
+      - turnserver
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  turnserver:
+    image: instrumentisto/turnserver
+    container_name: turnserver
+    ports:
+      - "3478:3478"
+      - "49152-65535:49152-65535"
+    volumes:
+      - ./turnserver/turnserver.conf:/etc/turnserver/turnserver.conf
+      - ./turnserver/turnserver.crt:/etc/turnserver/turnserver.crt
+      - ./turnserver/turnserver.key:/etc/turnserver/turnserver.key
+    environment:
+      - TURN_SERVER_REALM=yourdomain.com
+      - TURN_SERVER_USER=testuser
+      - TURN_SERVER_PASSWORD=testpassword
